@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>리오의 학교 행사 캘린더</title>
+
+  <!-- 🟡 여기 추가됨 -->
+  <link rel="icon" href="public/icon.png" type="image/png" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <h1>📅 리오의 학교 행사 캘린더</h1>
+
+  <label>📂 엑셀 파일 올리기:
+    <input type="file" id="fileInput" accept=".xlsx" />
+  </label>
+
+  <br /><br />
+
+  <label>📘 부서 선택:
+    <select id="filter">
+      <option value="전체">전체</option>
+    </select>
+  </label>
+
+  <div id="calendar">행사 정보를 불러오세요!</div>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
