@@ -36,91 +36,72 @@
 </select>
 <div id="events"></div>
 
-
 <script>
-/* ─────────────────────────────
-   JSON 자동 로딩 & 화면 렌더링
-────────────────────────────── */
 fetch('final_monthly_events.json')
   .then(r => r.json())
   .then(data => {
+    /* 날짜·부서·행사 정리 */
+    const events = data.map(e => {
+      const raw = e['날짜'].toString().trim()
+                  .replace('년','-').replace('월','-').replace('일','')
+                  .replace(/\s+/g,'');
+      const d = new Date(raw);
+      if (!isNaN(d)) {
+        const day = d.toLocaleDateString('ko-KR',{weekday:'short'});
+        e.dateString = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} (${day})`;
+      } else {
+        e.dateString = `${e['날짜']} (${e['요일']})`;
+      }
+      e.부서 = e.부서?.trim();
+      e.행사 = e.행사?.trim();
+      return e;
+    });
+    window.eventsData = events;   // 디버깅용
+
+    /* ─ 드롭다운 & 첫 렌더 ─ */
     const deptFilter = document.getElementById('deptFilter');
     const eventsDiv  = document.getElementById('events');
 
-    /* 날짜·요일 포맷 정리 */
-  const events = data.map(e => {
-  // "2025년 7월 1일" → "2025-07-01"
-  const raw = e['날짜'].toString().trim()
-               .replace('년','-')
-               .replace('월','-')
-               .replace('일','')
-               .replace(/\s+/g,'');
-  const d = new Date(raw);
-
-  if (!isNaN(d)) {      // 파싱 성공
-    const day = d.toLocaleDateString('ko-KR',{weekday:'short'});
-    e.dateString = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} (${day})`;
-  } else {              // 파싱 실패 → 원본 사용
-    e.dateString = `${e['날짜']} (${e['요일']})`;
-  }
-
-  e.부서 = e.부서?.trim();
-  e.행사 = e.행사?.trim();
-  return e;
-});
- 
-
-    /* 드롭다운 구축 */
-    const deptList = [...new Set(events.map(e => e.부서).filter(Boolean))];
+    const depts = [...new Set(events.map(e => e.부서).filter(Boolean))];
     deptFilter.innerHTML =
       '<option value="">-부서 선택-</option>' +
-      deptList.map(d => `<option value="${d}">${d}</option>`).join('');
+      depts.map(d => `<option value="${d}">${d}</option>`).join('');
+
     deptFilter.addEventListener('change', () => render(events));
+    render(events);   // ★ 첫 화면 카드 그리기
 
-    /* 첫 렌더 */
-    render(events);
-
-    /* ─── 화면 출력 함수 ─── */
-    function render(all) {
+    /* 카드 출력 함수 */
+    function render(all){
       const sel = deptFilter.value;
-      const filtered = sel ? all.filter(e => e.부서 === sel) : all;
+      const filtered = sel ? all.filter(e=>e.부서===sel) : all;
 
-      /* 날짜별로 묶기 */
       const grouped = {};
-      filtered.forEach(e => {
-        (grouped[e.dateKey] ||= []).push(e);
-      });
+      filtered.forEach(e => (grouped[e.dateString] ||= []).push(e));
 
-      /* 카드 생성 */
       eventsDiv.innerHTML = '';
-      Object.keys(grouped).sort().forEach(date => {
+      Object.keys(grouped).sort().forEach(date=>{
         const list = grouped[date];
         const card = document.createElement('div');
-        card.className = 'event-card';
-
-        /* 날짜 헤더 */
+        card.className='event-card';
         card.innerHTML = `<div class="event-date">${date}</div>`;
-
-        /* 행사 목록(빈 값은 건너뜀) */
-        list.forEach(item => {
-          if (!item.행사) return;                // ⚑ 빈 행사 skip
-          const line = `<div><strong>${item.부서}</strong>: ${item.행사}</div>`;
-          card.insertAdjacentHTML('beforeend', line);
+        list.forEach(item=>{
+          if(!item.행사) return;  // 빈 내용 skip
+          card.insertAdjacentHTML('beforeend',
+            `<div><strong>${item.부서}</strong>: ${item.행사}</div>`);
         });
-
-        /* 메모 입력 */
         card.insertAdjacentHTML('beforeend',
-          `<textarea class="memo-input"
-                    placeholder="개인 메모 입력..."
-                    oninput="saveMemo('${date}',this.value)">${loadMemo(date)}</textarea>`);
+          `<textarea class="memo-input" placeholder="개인 메모 입력..."
+             oninput="saveMemo('${date}',this.value)">${loadMemo(date)}</textarea>`
+        );
         eventsDiv.appendChild(card);
       });
     }
 
-    /* 메모 저장·불러오기 (로컬) */
+    /* 로컬 메모 (브라우저 저장) */
     window.saveMemo = (d,v)=>localStorage.setItem('memo-'+d,v);
-    window.loadMemo = d=>localStorage.getItem('memo-'+d)||'';
+    window.loadMemo = (d)=>localStorage.getItem('memo-'+d)||'';
   })
-  .catch(err => console.error('행사 데이터를 불러오지 못했습니다:', err));
-</script></body>
+  .catch(err=>console.error('JSON 로드 실패:',err));
+</script>
+</body>
 </html>
