@@ -38,55 +38,77 @@
 
 
 <script>
+/* ─────────────────────────────
+   JSON 자동 로딩 & 화면 렌더링
+────────────────────────────── */
 fetch('final_monthly_events.json')
-  .then(response => response.json())
+  .then(r => r.json())
   .then(data => {
     const deptFilter = document.getElementById('deptFilter');
-    const eventsDiv = document.getElementById('events');
+    const eventsDiv  = document.getElementById('events');
 
-    const eventsData = data.map(e => {
-      const date = new Date(e['날짜']);
-      const day = date.toLocaleDateString('ko-KR', { weekday: 'short' });
-      e.dateString = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} (${day})`;
-      return e;
+    /* 날짜·요일 포맷 정리 */
+    const events = data.map(e => {
+      const d   = new Date(e['날짜']);
+      const day = d.toLocaleDateString('ko-KR', { weekday:'short' });
+      return {
+        dateKey   : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} (${day})`,
+        부서      : e['부서']   || '',
+        행사      : e['행사']   || ''
+      };
     });
 
-    const depts = [...new Set(eventsData.map(e => e['부서']))];
-    deptFilter.innerHTML = '<option value="">-부서 선택-</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
-    deptFilter.addEventListener('change', () => displayEvents(eventsData));
-    displayEvents(eventsData);
+    /* 드롭다운 구축 */
+    const deptList = [...new Set(events.map(e => e.부서).filter(Boolean))];
+    deptFilter.innerHTML =
+      '<option value="">-부서 선택-</option>' +
+      deptList.map(d => `<option value="${d}">${d}</option>`).join('');
+    deptFilter.addEventListener('change', () => render(events));
 
-    function displayEvents(data) {
-      const dept = deptFilter.value;
-      const filtered = dept ? data.filter(e => e['부서'] === dept) : data;
-      const grouped = filtered.reduce((acc, e) => {
-        acc[e.dateString] = acc[e.dateString] || [];
-        acc[e.dateString].push(e);
-        return acc;
-      }, {});
+    /* 첫 렌더 */
+    render(events);
 
+    /* ─── 화면 출력 함수 ─── */
+    function render(all) {
+      const sel = deptFilter.value;
+      const filtered = sel ? all.filter(e => e.부서 === sel) : all;
+
+      /* 날짜별로 묶기 */
+      const grouped = {};
+      filtered.forEach(e => {
+        (grouped[e.dateKey] ||= []).push(e);
+      });
+
+      /* 카드 생성 */
       eventsDiv.innerHTML = '';
       Object.keys(grouped).sort().forEach(date => {
-        const group = grouped[date];
-        const section = document.createElement('div');
-        section.className = 'event-card';
-        section.innerHTML = `<div class="event-date">${date}</div>` +
-          group.map(e => `<div><strong>${e['부서']}:</strong> ${e['행사']}</div>`).join('') +
-          `<textarea class="memo-input" placeholder="개인 메모 입력..." oninput="saveMemo('${date}', this.value)">${loadMemo(date)}</textarea>`;
-        eventsDiv.appendChild(section);
+        const list = grouped[date];
+        const card = document.createElement('div');
+        card.className = 'event-card';
+
+        /* 날짜 헤더 */
+        card.innerHTML = `<div class="event-date">${date}</div>`;
+
+        /* 행사 목록(빈 값은 건너뜀) */
+        list.forEach(item => {
+          if (!item.행사) return;                // ⚑ 빈 행사 skip
+          const line = `<div><strong>${item.부서}</strong>: ${item.행사}</div>`;
+          card.insertAdjacentHTML('beforeend', line);
+        });
+
+        /* 메모 입력 */
+        card.insertAdjacentHTML('beforeend',
+          `<textarea class="memo-input"
+                    placeholder="개인 메모 입력..."
+                    oninput="saveMemo('${date}',this.value)">${loadMemo(date)}</textarea>`);
+        eventsDiv.appendChild(card);
       });
     }
 
-    function saveMemo(date, value) {
-      localStorage.setItem(`memo-${date}`, value);
-    }
-
-    function loadMemo(date) {
-      return localStorage.getItem(`memo-${date}`) || '';
-    }
+    /* 메모 저장·불러오기 (로컬) */
+    window.saveMemo = (d,v)=>localStorage.setItem('memo-'+d,v);
+    window.loadMemo = d=>localStorage.getItem('memo-'+d)||'';
   })
-  .catch(error => {
-    console.error('행사 데이터를 불러오지 못했습니다:', error);
-  });
+  .catch(err => console.error('행사 데이터를 불러오지 못했습니다:', err));
 </script></body>
 </html>
