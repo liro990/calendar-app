@@ -48,15 +48,27 @@ fetch('final_monthly_events.json')
     const eventsDiv  = document.getElementById('events');
 
     /* 날짜·요일 포맷 정리 */
-    const events = data.map(e => {
-      const d   = new Date(e['날짜']);
-      const day = d.toLocaleDateString('ko-KR', { weekday:'short' });
-      return {
-        dateKey   : `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} (${day})`,
-        부서      : e['부서']   || '',
-        행사      : e['행사']   || ''
-      };
-    });
+  const events = data.map(e => {
+  // "2025년 7월 1일" → "2025-07-01"
+  const raw = e['날짜'].toString().trim()
+               .replace('년','-')
+               .replace('월','-')
+               .replace('일','')
+               .replace(/\s+/g,'');
+  const d = new Date(raw);
+
+  if (!isNaN(d)) {      // 파싱 성공
+    const day = d.toLocaleDateString('ko-KR',{weekday:'short'});
+    e.dateString = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} (${day})`;
+  } else {              // 파싱 실패 → 원본 사용
+    e.dateString = `${e['날짜']} (${e['요일']})`;
+  }
+
+  e.부서 = e.부서?.trim();
+  e.행사 = e.행사?.trim();
+  return e;
+});
+ 
 
     /* 드롭다운 구축 */
     const deptList = [...new Set(events.map(e => e.부서).filter(Boolean))];
