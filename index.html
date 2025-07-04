@@ -102,6 +102,8 @@ fetch('final_monthly_events.json')
     window.loadMemo = (d)=>localStorage.getItem('memo-'+d)||'';
   })
   .catch(err=>console.error('JSON 로드 실패:',err));
+function saveMemo(date, value) { localStorage.setItem('memo-' + date, value); }
+function loadMemo(date)       { return localStorage.getItem('memo-' + date) || ''; }
 </script>
 </body>
 </html>
