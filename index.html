@@ -1,32 +1,106 @@
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>리오의 학교 행사 캘린더</title>
-
-  <!-- 🟡 여기 추가됨 -->
-  <link rel="icon" href="public/icon.png" type="image/png" />
-
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>월중행사일정</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+    h1 { text-align: center; color: #2c3e50; }
+    input[type="file"] { display: block; margin: 20px auto; }
+    select { display: block; margin: 10px auto; }
+    .event-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      margin: 10px 0;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    .event-date { font-weight: bold; }
+    .memo-input {
+      margin-top: 8px;
+      width: 100%;
+      padding: 6px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+  </style>
 </head>
 <body>
-  <h1>📅 리오의 학교 행사 캘린더</h1>
+  <h1>월중행사일정</h1>
 
-  <label>📂 엑셀 파일 올리기:
-    <input type="file" id="fileInput" accept=".xlsx" />
-  </label>
+  <input type="file" id="fileInput" accept=".xlsx">
+  <select id="deptFilter">
+    <option value="">-부서 선택-</option>
+  </select>
+  <div id="events"></div>
 
-  <br /><br />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const deptFilter = document.getElementById('deptFilter');
+    const eventsDiv = document.getElementById('events');
 
-  <label>📘 부서 선택:
-    <select id="filter">
-      <option value="전체">전체</option>
-    </select>
-  </label>
+    let eventsData = [];
 
-  <div id="calendar">행사 정보를 불러오세요!</div>
+    fileInput.addEventListener('change', handleFile);
+    deptFilter.addEventListener('change', displayEvents);
 
-  <script type="module" src="./app.js"></script>
+    function handleFile(e) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const json = XLSX.utils.sheet_to_json(sheet);
+
+        eventsData = json.filter(row => row['날짜'] && row['부서'] && row['행사']);
+        eventsData.forEach(e => {
+          const date = new Date(e['날짜']);
+          if (!isNaN(date)) {
+            const day = date.toLocaleDateString('ko-KR', { weekday: 'short' });
+            e.dateString = `${date.getFullYear()}-${(date.getMonth()+1).toString().padStart(2,'0')}-${date.getDate().toString().padStart(2,'0')} (${day})`;
+          }
+        });
+
+        const depts = [...new Set(eventsData.map(e => e['부서']))];
+        deptFilter.innerHTML = '<option value="">-부서 선택-</option>' + depts.map(d => `<option value="${d}">${d}</option>`).join('');
+
+        displayEvents();
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function displayEvents() {
+      const dept = deptFilter.value;
+      const filtered = dept ? eventsData.filter(e => e['부서'] === dept) : eventsData;
+      const grouped = filtered.reduce((acc, e) => {
+        acc[e.dateString] = acc[e.dateString] || [];
+        acc[e.dateString].push(e);
+        return acc;
+      }, {});
+
+      eventsDiv.innerHTML = '';
+      Object.keys(grouped).sort().forEach(date => {
+        const group = grouped[date];
+        const section = document.createElement('div');
+        section.className = 'event-card';
+        section.innerHTML = `<div class="event-date">${date}</div>` +
+          group.map(e => `<div><strong>${e['부서']}:</strong> ${e['행사']}</div>`).join('') +
+          `<textarea class="memo-input" placeholder="개인 메모 입력..." oninput="saveMemo('${date}', this.value)">${loadMemo(date)}</textarea>`;
+        eventsDiv.appendChild(section);
+      });
+    }
+
+    function saveMemo(date, value) {
+      localStorage.setItem(`memo-${date}`, value);
+    }
+
+    function loadMemo(date) {
+      return localStorage.getItem(`memo-${date}`) || '';
+    }
+  </script>
 </body>
 </html>
